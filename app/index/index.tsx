@@ -1,47 +1,45 @@
-//React
-import React, { useState, useEffect } from 'react';
-import { Alert, Text } from 'react-native';
+import React, { useState, useEffect } from "react";
+import { Alert, Text, TextInput, View, Button, FlatList } from "react-native";
 
-//Estilos
-import { styles } from './styles';
-//import EditScreenInfo from '@/components/EditScreenInfo';
-import { View, TextInput, Button, FlatList } from '@/components/Themed';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+// Estilos
+import { styles } from "./styles";
+import ListaWc from "@/components/ListaWc";
 
-//Firebase
-import { db } from '@/constants/firebaseConfig';
-import {ref, push, get, onValue, update, remove} from "firebase/database"
+// Firebase
+import { db } from "@/constants/firebaseConfig";
+import { ref, push, get, onValue, update } from "firebase/database";
 
-const nodeMain: string = "wcsUnisystem";
-let tasksRef;
+const NODE_MAIN = "wcsUnisystem";
 
-export default function index() {
-  
+export default function WcList() {
   const [task, setTask] = useState("");
-  const [tasks, setTasks] = useState<{ id: string; ocupado: string; }[]>([]);
-  const [specificTask, setSpecificTask] = useState("");
+  const [tasks, setTasks] = useState<{ id: string; ocupado: boolean }[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Função para adicionar uma nova tarefa
-  const addTask = () => {
-
-    if (task.trim()) {      
-      //tasksRef = ref(db, nodeMain);
-      //push(tasksRef, { text: task });// Adiciona um novo nó para a nova tarefa);
-      //setTask(""); // Limpa o campo de entrada
-
-      tasksRef = ref(db, `${nodeMain}/${task}`); 
-      update(tasksRef, { id : task, ocupado: false});
-      setTask("");
+  // Função para adicionar uma nova sala
+  const addTask = async () => {
+    if (task.trim()) {
+      try {
+        const taskRef = ref(db, `${NODE_MAIN}/${task}`);
+        await update(taskRef, { id: task, ocupado: false });
+        setTask(""); // Limpa o campo
+      } catch (error) {
+        Alert.alert("Erro", "Não foi possível adicionar a sala.");
+        console.error(error);
+      }
     }
   };
 
-   // Observa as mudanças no banco de dados neste nó
-   useEffect(() => {
-    tasksRef = ref(db, nodeMain);
+  // Observa as mudanças no banco de dados
+  useEffect(() => {
+    const tasksRef = ref(db, NODE_MAIN);
     const unsubscribe = onValue(tasksRef, (snapshot) => {
       const data = snapshot.val();
-      const loadedTasks: { id: string; ocupado: string; }[] = data
-        ? Object.keys(data).map((key) => ({ id: key, ocupado: data[key].ocupado }))
+      const loadedTasks = data
+        ? Object.keys(data).map((key) => ({
+            id: key,
+            ocupado: data[key].ocupado,
+          }))
         : [];
       setTasks(loadedTasks);
     });
@@ -49,41 +47,49 @@ export default function index() {
     return () => unsubscribe();
   }, []);
 
-  // Função para obter o valor de um tópico específico
+  // Função para obter o valor de uma sala específica
   const getSpecificTask = async (taskId: string) => {
     try {
-      let taskRef = ref(db, `${nodeMain}/${taskId}`);
+      const taskRef = ref(db, `${NODE_MAIN}/${taskId}`);
       const snapshot = await get(taskRef);
 
       if (snapshot.exists()) {
         const taskData = snapshot.val();
-        setSpecificTask(taskData.id); // Exibe o valor no estado
-        Alert.alert("Sala Obtida", `Texto: ${taskData.id}`);
+        Alert.alert("Sala Obtida", `ID: ${taskData.id}`);
       } else {
-         Alert.alert("Erro", "Sala não encontrada.");
+        Alert.alert("Erro", "Sala não encontrada.");
       }
     } catch (error) {
-      Alert.alert("Erro", "Não foi possível obter a WC.");
+      Alert.alert("Erro", "Não foi possível obter a sala.");
       console.error(error);
     }
   };
 
-  const updateSpecificTask = async (taskId: string) => {
+  // Atualiza o status de uma sala
+  const updateSpecificTask = async (updatedItem: { id: string; ocupado: boolean }) => {
     try {
-      tasksRef = ref(db, `${nodeMain}/${taskId}`); 
-      update(tasksRef, { id : taskId, ocupado: true});
+      setLoading(true);
+      const taskRef = ref(db, `${NODE_MAIN}/${updatedItem.id}`);
+      await update(taskRef, { ocupado: updatedItem.ocupado });
+
+      // Atualiza o estado local para refletir as mudanças
+      setTasks((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === updatedItem.id ? { ...task, ocupado: updatedItem.ocupado } : task
+        )
+      );
     } catch (error) {
-      Alert.alert("Erro", "Não foi possível reservar o WC.");
+      Alert.alert("Erro", "Não foi possível atualizar a sala.");
       console.error(error);
-    }  
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" /> */}
-      {/* <EditScreenInfo path="app/index/index.tsx" /> */}
-
       <Text style={styles.title}>Lista de WCs Unisystem</Text>
+
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -94,30 +100,15 @@ export default function index() {
         <Button title="Adicionar" onPress={addTask} />
       </View>
 
+      {loading && <Text>Carregando...</Text>}
+
       <FlatList
         data={tasks}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.taskContainer}>
-            {item.ocupado ? <MaterialIcons name="wc" size={48} color="red" /> : <MaterialIcons name="wc" size={48} color="green" />}
-
-            <Text style={styles.task}>
-              {item.id}
-            </Text>
-
-             <Text style={styles.task}>
-                {item.ocupado ? 'Ocupado' : 'Livre'}
-             </Text>
-
-             
-            
-            {/* <Button title="Detalhes" onPress={() => getSpecificTask(item.id)} /> */}
-            <Button title="Reservar" onPress={() => updateSpecificTask(item.id)} />
-          </View>
+          <ListaWc item={item} handleUpdated={updateSpecificTask} />
         )}
       />
-
-      {/* {specificTask ? <Text style={styles.specificTask}>WC Selecionado: {specificTask}</Text> : null} */}
     </View>
   );
 }

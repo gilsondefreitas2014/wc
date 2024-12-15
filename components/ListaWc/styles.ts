@@ -23,5 +23,22 @@ export const styles = StyleSheet.create({
     borderRadius: 5,
     padding: 10,
     marginRight: 10,
-  }
+  },
+  taskContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  task: {
+    fontSize: 18,
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#ccc",
+  },
+  specificTask: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 20,
+  },
 });
